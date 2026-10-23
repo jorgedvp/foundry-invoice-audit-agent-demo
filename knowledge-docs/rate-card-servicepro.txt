@@ -1,0 +1,14 @@
+# ServicePro Staffing Solutions — Approved Rate Card & Pre-Approval Log Reference
+**Linked Agreement:** MSA-2025-0417, Schedule A
+**Last updated:** September 2026
+
+This rate card is the authoritative source for standard hourly rates and confirms which overtime pre-approval references are valid for the Columbus, OH site in Q3 FY26.
+
+## Valid Overtime Pre-Approvals — Columbus, OH — August 2026
+| Approval Ref # | Worker ID | Role               | Approved OT Hours | Approved By          |
+|----------------|-----------|--------------------|--------------------|-----------------------|
+| OT-0881        | SP-2291   | Machine Operator II | 6                  | J. Alvarez (Site Supv)|
+| OT-0882        | SP-2304   | Warehouse Associate  | 4                  | J. Alvarez (Site Supv)|
+| OT-0883        | SP-2318   | Quality Inspector    | 3                  | M. Chen (Site Supv)   |
+
+No other overtime pre-approvals were issued for the Columbus, OH site during August 2026. Any overtime hours billed for Columbus, OH in August 2026 outside approval references OT-0881, OT-0882, or OT-0883 have no corresponding written pre-approval on file and are non-billable per MSA Section 3.2.

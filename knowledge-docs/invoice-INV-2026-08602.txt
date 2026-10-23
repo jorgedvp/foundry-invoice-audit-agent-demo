@@ -1,0 +1,23 @@
+# Invoice INV-2026-08602
+**Vendor:** ServicePro Staffing Solutions LLC
+**Client:** Meridian Manufacturing Inc. — Columbus, OH site
+**Billing Period:** August 1–31, 2026
+**Agreement Reference:** MSA-2025-0417
+
+## Line Items
+
+| Line | Worker ID | Role                | Standard Hours | Std Rate | OT Hours | OT Rate | Approval Ref        | Line Total |
+|------|-----------|---------------------|-----------------|----------|----------|---------|----------------------|------------|
+| 1    | SP-2291   | Machine Operator II | 160             | $28.75   | 6        | $43.13  | OT-0881              | $4,858.78  |
+| 2    | SP-2304   | Warehouse Associate | 168             | $19.00   | 4        | $28.50  | OT-0882              | $3,306.00  |
+| 3    | SP-2318   | Quality Inspector   | 152             | $31.00   | 3        | $46.50  | OT-0883              | $4,851.50  |
+| 4    | SP-2355   | Machine Operator I  | 160             | $24.50   | **227**  | $36.75  | *(none provided)*    | **$12,262.25** |
+
+**Invoice Subtotal:** $25,278.53
+**SLA Credit Applied:** $0.00
+**Total Due:** $25,278.53
+
+---
+Submitted by: ServicePro Staffing Solutions LLC, Accounts Receivable
+
+**Note for auditor:** Line 4 (Worker SP-2355) bills 227 overtime hours for August 2026 at the Columbus, OH site. Cross-reference against the approved overtime pre-approval log (rate-card-servicepro.txt): only approval references OT-0881, OT-0882, and OT-0883 were issued for Columbus, OH in August 2026, covering workers SP-2291, SP-2304, and SP-2318 respectively. No approval reference exists for worker SP-2355. Per MSA Section 3.2, overtime hours billed without a written pre-approval record are non-billable. The 227 OT hours on Line 4 ($8,342.25) have no matching approval and should be flagged/credited.

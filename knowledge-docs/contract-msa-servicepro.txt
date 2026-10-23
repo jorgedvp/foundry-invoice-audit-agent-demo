@@ -1,0 +1,34 @@
+# Master Services Agreement (MSA) — Meridian Manufacturing & ServicePro Staffing Solutions
+
+**Agreement ID:** MSA-2025-0417
+**Effective Date:** April 17, 2025
+**Term:** 24 months, auto-renewing annually unless terminated with 60 days' notice
+**Parties:** Meridian Manufacturing Inc. ("Client") and ServicePro Staffing Solutions LLC ("Vendor")
+
+## 1. Scope of Services
+Vendor provides contract labor (machine operators, warehouse associates, quality inspectors) to Client's Columbus, OH and Querétaro, MX production facilities.
+
+## 2. Standard Labor Rates (Schedule A)
+| Role                     | Standard Hourly Rate (USD) | Overtime Multiplier |
+|--------------------------|-----------------------------|----------------------|
+| Machine Operator I        | $24.50                      | 1.5x                 |
+| Machine Operator II       | $28.75                      | 1.5x                 |
+| Warehouse Associate       | $19.00                      | 1.5x                 |
+| Quality Inspector         | $31.00                      | 1.5x                 |
+
+## 3. Overtime Policy (Section 3.2 — binding clause)
+- Overtime hours (hours worked beyond 40/week per worker) are billed at 1.5x the Standard Hourly Rate listed in Schedule A.
+- **Overtime must be pre-approved in writing by a Meridian Manufacturing site supervisor before the shift is worked.** Verbal approval or after-the-fact approval does NOT qualify for overtime billing under this Agreement.
+- Overtime hours billed without a corresponding written pre-approval record are **non-billable** and must be excluded from invoices, per Section 3.2(c).
+- Monthly overtime hours billed to Client shall not exceed 10% of total standard hours billed for that site in the same month, unless an exception is jointly signed by both parties (Section 3.2(d)).
+
+## 4. Invoicing & Audit Rights
+- Vendor shall submit itemized monthly invoices within 10 business days of month-end, referencing worker ID, role, standard hours, overtime hours, and the written approval reference number for any overtime line.
+- Client reserves the right to audit any invoice against timesheets and approval records within 90 days of receipt (Section 4.3).
+- Discrepancies identified during audit are creditable against the next invoice cycle (Section 4.5).
+
+## 5. Service Level Agreement (SLA)
+- Vendor must fill open requisitions within 5 business days.
+- Fill-rate below 90% in any month triggers a 5% service credit on that month's invoice (Section 5.2).
+
+**Signed:** Meridian Manufacturing Inc. (Procurement) / ServicePro Staffing Solutions LLC (Account Management)

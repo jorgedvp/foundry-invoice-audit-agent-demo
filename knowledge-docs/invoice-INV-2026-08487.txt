@@ -1,0 +1,18 @@
+# Invoice INV-2026-08487
+**Vendor:** ServicePro Staffing Solutions LLC
+**Client:** Meridian Manufacturing Inc. — Querétaro, MX site
+**Billing Period:** July 1–31, 2026
+**Agreement Reference:** MSA-2025-0417
+
+## Line Items
+
+| Line | Worker ID | Role               | Standard Hours | Std Rate | OT Hours | OT Rate | Approval Ref | Line Total |
+|------|-----------|--------------------|-----------------|----------|----------|---------|--------------|------------|
+| 1    | SP-1140   | Machine Operator I | 160             | $24.50   | 5        | $36.75  | OT-0812      | $4,103.75  |
+| 2    | SP-1152   | Quality Inspector  | 152             | $31.00   | 2        | $46.50  | OT-0813      | $4,805.00  |
+
+**Invoice Subtotal:** $8,908.75
+**SLA Credit Applied:** $0.00
+**Total Due:** $8,908.75
+
+**Auditor note:** All overtime lines reference valid, pre-approved authorization numbers (OT-0812, OT-0813) matching the Querétaro site approval log. No discrepancies found — this invoice is fully compliant with MSA Section 3.2.

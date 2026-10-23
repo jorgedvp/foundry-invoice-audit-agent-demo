@@ -38,17 +38,39 @@ ok "Using subscription $AZURE_SUBSCRIPTION_ID (tenant $AZURE_TENANT_ID)"
 
 SUB_ID="$AZURE_SUBSCRIPTION_ID"
 
+step "0b/10 — Resource provider registration"
+for rp in Microsoft.CognitiveServices Microsoft.Storage Microsoft.Search Microsoft.Insights Microsoft.MachineLearningServices; do
+  state=$(az provider show -n "$rp" --query registrationState -o tsv 2>/dev/null || echo "NotRegistered")
+  if [ "$state" != "Registered" ]; then
+    log "Registering resource provider $rp (state: $state)..."
+    az provider register -n "$rp" >/dev/null
+  fi
+done
+retry 300 15 "All resource providers registered" -- bash -c '
+  for rp in Microsoft.CognitiveServices Microsoft.Storage Microsoft.Search Microsoft.Insights Microsoft.MachineLearningServices; do
+    state=$(az provider show -n "$rp" --query registrationState -o tsv)
+    [ "$state" = "Registered" ] || exit 1
+  done
+'
+
 step "1/10 — Resource group"
 az group show -n "$RESOURCE_GROUP" >/dev/null 2>&1 || \
   az group create -n "$RESOURCE_GROUP" -l "$LOCATION" >/dev/null
 ok "Resource group: $RESOURCE_GROUP"
 
 step "2/10 — Foundry account (Microsoft.CognitiveServices, kind=AIServices)"
+# If this name was deleted recently (e.g. a prior teardown.sh run), Azure soft-deletes
+# Cognitive Services accounts for a retention period. Purge it so re-deploys don't fail.
+if az cognitiveservices account list-deleted --query "[?name=='$FOUNDRY_ACCOUNT_NAME']" -o tsv 2>/dev/null | grep -q "$FOUNDRY_ACCOUNT_NAME"; then
+  warn "Purging soft-deleted Foundry account '$FOUNDRY_ACCOUNT_NAME' from a previous teardown..."
+  az cognitiveservices account purge -n "$FOUNDRY_ACCOUNT_NAME" -g "$RESOURCE_GROUP" -l "$LOCATION" >/dev/null 2>&1 || true
+  sleep 10
+fi
 if ! az cognitiveservices account show -n "$FOUNDRY_ACCOUNT_NAME" -g "$RESOURCE_GROUP" >/dev/null 2>&1; then
   az cognitiveservices account create \
     -n "$FOUNDRY_ACCOUNT_NAME" -g "$RESOURCE_GROUP" -l "$LOCATION" \
     --kind AIServices --sku S0 --custom-domain "$FOUNDRY_ACCOUNT_NAME" \
-    --assign-identity --identity-type SystemAssigned >/dev/null
+    --assign-identity >/dev/null
   ok "Created Foundry account: $FOUNDRY_ACCOUNT_NAME"
 else
   ok "Foundry account already exists: $FOUNDRY_ACCOUNT_NAME"
@@ -91,61 +113,65 @@ deploy_model "$AGENT_MODEL_NAME" "$AGENT_MODEL_NAME" "$AGENT_MODEL_VERSION"
 deploy_model "$KB_MODEL_NAME" "$KB_MODEL_NAME" "$KB_MODEL_VERSION"
 deploy_model "$EMBEDDING_MODEL_NAME" "$EMBEDDING_MODEL_NAME" "$EMBEDDING_MODEL_VERSION"
 
-step "4/10 — Storage account + container for knowledge documents"
-STORAGE_SUFFIX=$(short_suffix "$RESOURCE_GROUP")
-STORAGE_NAME="${STORAGE_ACCOUNT_NAME}${STORAGE_SUFFIX}"
-if ! az storage account show -n "$STORAGE_NAME" -g "$RESOURCE_GROUP" >/dev/null 2>&1; then
-  az storage account create -n "$STORAGE_NAME" -g "$RESOURCE_GROUP" -l "$LOCATION" \
-    --sku Standard_LRS --kind StorageV2 --allow-blob-public-access false >/dev/null
-  ok "Created storage account: $STORAGE_NAME"
-else
-  ok "Storage account already exists: $STORAGE_NAME"
-fi
-STORAGE_ID=$(az storage account show -n "$STORAGE_NAME" -g "$RESOURCE_GROUP" --query id -o tsv)
-CONTAINER_NAME="knowledge-docs"
-az storage container create --account-name "$STORAGE_NAME" --name "$CONTAINER_NAME" \
-  --auth-mode login >/dev/null 2>&1 || true
-for f in "$REPO_ROOT"/knowledge-docs/*.txt; do
-  az storage blob upload --account-name "$STORAGE_NAME" --container-name "$CONTAINER_NAME" \
-    --name "$(basename "$f")" --file "$f" --auth-mode login --overwrite true >/dev/null
-done
-ok "Uploaded $(ls "$REPO_ROOT"/knowledge-docs/*.txt | wc -l | tr -d ' ') knowledge documents to blob container '$CONTAINER_NAME'"
+step "4/10 — Knowledge documents (uploaded directly to Search, no storage account needed)"
+ok "Knowledge documents will be uploaded directly to the File knowledge source after it is created (step 7)."
 
-step "5/10 — Azure AI Search (serverless) + knowledge resources"
+step "5/10 — Azure AI Search (serverless)"
 if ! az search service show -n "$SEARCH_SERVICE_NAME" -g "$RESOURCE_GROUP" >/dev/null 2>&1; then
   az rest --method put \
-    --uri "https://management.azure.com/subscriptions/${SUB_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.Search/searchServices/${SEARCH_SERVICE_NAME}?api-version=2025-05-01" \
-    --body "{\"location\": \"$SEARCH_LOCATION\", \"sku\": {\"name\": \"serverless\"}, \"identity\": {\"type\": \"SystemAssigned\"}, \"properties\": {\"disableLocalAuth\": true}}" >/dev/null
+    --uri "https://management.azure.com/subscriptions/${SUB_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.Search/searchServices/${SEARCH_SERVICE_NAME}?api-version=2026-09-01-Preview" \
+    --body "{\"location\": \"$SEARCH_LOCATION\", \"sku\": {\"name\": \"serverless\"}, \"identity\": {\"type\": \"SystemAssigned\"}, \"properties\": {\"disableLocalAuth\": true, \"semanticSearch\": \"standard\"}}" >/dev/null
+  # semanticSearch MUST be "standard" (not the default "free") — Foundry IQ knowledge
+  # sources fail to create with a generic 500 error otherwise. Confirmed by diffing
+  # a working manually-created Search service against a freshly scripted one.
   ok "Created Azure AI Search service: $SEARCH_SERVICE_NAME"
 else
   ok "Azure AI Search service already exists: $SEARCH_SERVICE_NAME"
   # Ensure system-assigned identity is present even if the service pre-existed without one.
-  az rest --method patch \
-    --uri "https://management.azure.com/subscriptions/${SUB_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.Search/searchServices/${SEARCH_SERVICE_NAME}?api-version=2025-05-01" \
-    --body '{"identity": {"type": "SystemAssigned"}}' >/dev/null
+  _existing_identity=$(az search service show -n "$SEARCH_SERVICE_NAME" -g "$RESOURCE_GROUP" --query "identity.type" -o tsv 2>/dev/null || echo "")
+  if [ "$_existing_identity" != "SystemAssigned" ]; then
+    az rest --method patch \
+      --uri "https://management.azure.com/subscriptions/${SUB_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.Search/searchServices/${SEARCH_SERVICE_NAME}?api-version=2026-09-01-Preview" \
+      --body '{"identity": {"type": "SystemAssigned"}}' >/dev/null
+  fi
+  # Ensure semanticSearch is "standard" even if the service pre-existed with "free"
+  # (required for Foundry IQ knowledge sources — see note above).
+  _existing_semantic=$(az search service show -n "$SEARCH_SERVICE_NAME" -g "$RESOURCE_GROUP" --query "semanticSearch" -o tsv 2>/dev/null || echo "")
+  if [ "$_existing_semantic" != "standard" ]; then
+    az rest --method patch \
+      --uri "https://management.azure.com/subscriptions/${SUB_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.Search/searchServices/${SEARCH_SERVICE_NAME}?api-version=2026-09-01-Preview" \
+      --body '{"properties": {"semanticSearch": "standard"}}' >/dev/null
+    ok "Upgraded semanticSearch to 'standard' on existing service"
+  fi
 fi
 SEARCH_ID="/subscriptions/${SUB_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.Search/searchServices/${SEARCH_SERVICE_NAME}"
-SEARCH_PRINCIPAL_ID=$(az rest --method get --uri "https://management.azure.com${SEARCH_ID}?api-version=2025-05-01" --query identity.principalId -o tsv)
+SEARCH_PRINCIPAL_ID=$(az rest --method get --uri "https://management.azure.com${SEARCH_ID}?api-version=2026-09-01-Preview" --query identity.principalId -o tsv)
 SEARCH_ENDPOINT="https://${SEARCH_SERVICE_NAME}.search.windows.net"
 
 step "6/10 — RBAC role assignments (allow 1–10 min to propagate)"
 assign_role "$SEARCH_PRINCIPAL_ID" "Cognitive Services User" "$FOUNDRY_ACCOUNT_ID"
-assign_role "$SEARCH_PRINCIPAL_ID" "Storage Blob Data Reader" "$STORAGE_ID"
 assign_role "$PROJECT_PRINCIPAL_ID" "Search Index Data Reader" "$SEARCH_ID"
 assign_role "$PROJECT_PRINCIPAL_ID" "Search Service Contributor" "$SEARCH_ID"
-assign_role "$FOUNDRY_PRINCIPAL_ID" "Storage Blob Data Reader" "$STORAGE_ID"
 
-step "7/10 — Knowledge source + knowledge base (Foundry IQ)"
+step "7/10 — Knowledge source (File, direct upload) + knowledge base (Foundry IQ)"
 KB_MODEL_DEPLOY_URI="${FOUNDRY_ENDPOINT%/}"
 knowledge_source_body=$(cat <<JSON
 {
   "name": "$KNOWLEDGE_SOURCE_NAME",
-  "kind": "azureBlob",
+  "kind": "file",
   "description": "MSA-2025-0417 contract, overtime pre-approval log, and ServicePro invoices for Meridian Manufacturing.",
-  "azureBlobParameters": {
-    "connectionString": "ResourceId=${STORAGE_ID};",
-    "containerName": "$CONTAINER_NAME",
-    "identity": { "@odata.type": "#Microsoft.Azure.Search.DataNoneIdentity" }
+  "fileParameters": {
+    "ingestionParameters": {
+      "embeddingModel": {
+        "kind": "azureOpenAI",
+        "azureOpenAIParameters": {
+          "resourceUri": "$KB_MODEL_DEPLOY_URI",
+          "deploymentId": "$EMBEDDING_MODEL_NAME",
+          "modelName": "$EMBEDDING_MODEL_NAME"
+        }
+      },
+      "contentExtractionMode": "minimal"
+    }
   }
 }
 JSON
@@ -154,6 +180,16 @@ retry "$RBAC_WAIT_TIMEOUT_SECONDS" "$RBAC_POLL_INTERVAL_SECONDS" "Knowledge sour
   curl -sf -X PUT "${SEARCH_ENDPOINT}/knowledgesources('${KNOWLEDGE_SOURCE_NAME}')?api-version=2026-08-01-preview" \
     -H "Authorization: Bearer $(search_token)" -H "Content-Type: application/json" -H "Prefer: return=representation" \
     -d "$knowledge_source_body"
+
+step "7b/10 — Uploading knowledge documents to the File knowledge source"
+for f in "$REPO_ROOT"/knowledge-docs/*.txt; do
+  fname="$(basename "$f")"
+  retry 60 10 "Uploaded $fname" -- \
+    curl -sf -X POST "${SEARCH_ENDPOINT}/knowledgesources('${KNOWLEDGE_SOURCE_NAME}')/files?api-version=2026-08-01-preview" \
+      -H "Authorization: Bearer $(search_token)" \
+      -F "metadata={\"fileName\": \"$fname\"};type=application/json" \
+      -F "content=@${f};filename=${fname};type=text/plain"
+done
 
 knowledge_base_body=$(cat <<JSON
 {
@@ -192,8 +228,8 @@ connection_body=$(cat <<JSON
     "category": "RemoteTool",
     "target": "$MCP_ENDPOINT",
     "isSharedToAll": true,
-    "audience": "https://search.azure.com/",
-    "metadata": { "ApiType": "Azure" }
+    "audience": "https://search.azure.com",
+    "metadata": { "knowledgeBaseName": "$KNOWLEDGE_BASE_NAME", "type": "knowledgeBase_MCP" }
   }
 }
 JSON
@@ -217,7 +253,7 @@ assign_role "$PROJECT_PRINCIPAL_ID" "Monitoring Reader" "$APPI_ID"
 
 appi_connection_body=$(cat <<JSON
 {
-  "name": "${APP_INSIGHTS_NAME}-connection",
+  "name": "${APP_INSIGHTS_NAME}",
   "type": "Microsoft.MachineLearningServices/workspaces/connections",
   "properties": {
     "authType": "ApiKey",
@@ -225,12 +261,12 @@ appi_connection_body=$(cat <<JSON
     "target": "$APPI_ID",
     "isSharedToAll": true,
     "credentials": { "key": "$APPI_CONNECTION_STRING" },
-    "metadata": { "ResourceId": "$APPI_ID" }
+    "metadata": { "ApiType": "Azure", "ResourceId": "$APPI_ID" }
   }
 }
 JSON
 )
-if curl -sf -X PUT "https://management.azure.com${PROJECT_RESOURCE_ID}/connections/${APP_INSIGHTS_NAME}-connection?api-version=2025-10-01-preview" \
+if curl -sf -X PUT "https://management.azure.com${PROJECT_RESOURCE_ID}/connections/${APP_INSIGHTS_NAME}?api-version=2025-10-01-preview" \
     -H "Authorization: Bearer $(arm_token)" -H "Content-Type: application/json" -d "$appi_connection_body" >/tmp/appi_conn.json 2>&1; then
   ok "Linked Application Insights to the project"
 else
@@ -248,10 +284,9 @@ agent_body=$(cat <<JSON
     "tools": [
       {
         "type": "mcp",
-        "server_label": "knowledge-base",
+        "server_label": "$PROJECT_CONNECTION_NAME",
         "server_url": "$MCP_ENDPOINT",
         "require_approval": "never",
-        "allowed_tools": ["knowledge_base_retrieve"],
         "project_connection_id": "$PROJECT_CONNECTION_NAME"
       }
     ]
@@ -269,17 +304,17 @@ if [ "${SEED_SAMPLE_TRAFFIC:-true}" = "true" ]; then
   ai_tok=$(ai_token)
   send_sample() {
     local question="$1"
-    curl -sf -X POST "${PROJECT_ENDPOINT}/openai/v1/responses" \
+    curl -s -X POST "${PROJECT_ENDPOINT}/openai/v1/responses" \
       -H "Authorization: Bearer $ai_tok" -H "Content-Type: application/json" \
-      -d "{\"agent\": {\"type\": \"agent_reference\", \"name\": \"$AGENT_NAME\"}, \"input\": \"$question\"}" \
+      -d "{\"agent_reference\": {\"type\": \"agent_reference\", \"name\": \"$AGENT_NAME\"}, \"input\": \"$question\"}" \
       -o /tmp/sample_resp.json -w "%{http_code}"
   }
   Q1="Please audit invoice INV-2026-08602 from ServicePro Staffing Solutions (Columbus, OH site, August 2026) against the MSA and the overtime pre-approval log. Flag any non-billable overtime and tell me the dollar amount at risk."
   Q2="Now audit invoice INV-2026-08487 from ServicePro Staffing Solutions (Queretaro, MX site, July 2026) the same way. Is it compliant?"
   Q3="What is the SLA fill-rate requirement for ServicePro and what happens if they miss it? Cite the MSA section."
   for q in "$Q1" "$Q2" "$Q3"; do
-    code=$(send_sample "$q" || echo "000")
-    if [ "$code" = "200" ]; then ok "Sample question answered (HTTP $code)"; else warn "Sample question returned HTTP $code — send it manually from the Playground if Traces look empty."; fi
+    code=$(send_sample "$q")
+    if [ "$code" = "200" ]; then ok "Sample question answered (HTTP $code)"; else warn "Sample question returned HTTP $code — send it manually from the Playground if Traces look empty."; cat /tmp/sample_resp.json >&2 || true; fi
     sleep 3
   done
 fi

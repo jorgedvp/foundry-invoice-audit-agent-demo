@@ -46,6 +46,17 @@ if [ "$AUTO_YES" != "--yes" ]; then
   fi
 fi
 
-log "Deleting resource group '$RESOURCE_GROUP' (running in the background; this can take a few minutes)..."
-az group delete -n "$RESOURCE_GROUP" --yes --no-wait
-ok "Deletion started. Check progress with: az group show -n $RESOURCE_GROUP (returns an error once fully deleted)"
+log "Deleting resource group '$RESOURCE_GROUP' (waiting for completion so the Foundry account can be purged)..."
+az group delete -n "$RESOURCE_GROUP" --yes
+ok "Resource group deleted."
+
+# Cognitive Services accounts (the Foundry account) are soft-deleted by Azure for a
+# retention period even after the resource group is gone. Purge it immediately so a
+# future deploy.sh run against the same FOUNDRY_ACCOUNT_NAME doesn't need to wait out
+# the retention window (deploy.sh also self-heals this, but purging here is faster).
+if az cognitiveservices account list-deleted --query "[?name=='$FOUNDRY_ACCOUNT_NAME']" -o tsv 2>/dev/null | grep -q "$FOUNDRY_ACCOUNT_NAME"; then
+  log "Purging soft-deleted Foundry account '$FOUNDRY_ACCOUNT_NAME'..."
+  az cognitiveservices account purge -n "$FOUNDRY_ACCOUNT_NAME" -g "$RESOURCE_GROUP" -l "$LOCATION" >/dev/null 2>&1 || true
+  ok "Purged."
+fi
+ok "Teardown complete. No billable resources remain from this demo."

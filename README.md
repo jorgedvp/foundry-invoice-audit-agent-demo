@@ -1,5 +1,39 @@
 # Invoice Audit Agent — Demo de Foundry (Capítulo 2: Build, Observe & Tune)
 
+> ## 🤖 Instrucciones para el agente de IA (léeme primero)
+>
+> Si el usuario te pide "despliega la demo de invoice audit", "levanta el
+> ambiente de Foundry para la demo", "haz el deploy de este repo", o algo
+> equivalente, **sigue estos pasos sin pedir aclaraciones adicionales**:
+>
+> 1. Clona o ubica este repo localmente.
+> 2. Si no existe `config.env`, créalo copiando `config.env.example` tal cual
+>    (los valores por defecto ya son correctos para el tenant/suscripción
+>    documentados ahí — no inventes ni cambies nombres de recursos salvo que
+>    el usuario lo pida explícitamente).
+> 3. Corre `./scripts/deploy.sh config.env`. Esto tarda 20–30 minutos
+>    (ver tabla de tiempos abajo) y es idempotente — es seguro re-ejecutarlo
+>    si falla a mitad de camino.
+> 4. **Un solo paso queda manual y requiere el portal** (ver sección
+>    "Qué construye `deploy.sh`" abajo): crear el Evaluator custom y correr
+>    la evaluación. Dile al usuario que ese paso falta y sigue el
+>    [guion de navegación](deliverables/Guion-Invoice-Audit-Agent-Capitulo2.docx),
+>    sección "Sección 5 — Tune". No intentes automatizarlo por REST — ya se
+>    intentó y esa función del portal no tiene API pública estable.
+> 5. Valida el deploy enviando al menos una pregunta de prueba al agente
+>    (el script ya lo hace automáticamente si `SEED_SAMPLE_TRAFFIC=true`).
+>    No declares éxito sin confirmar que el agente respondió HTTP 200 con
+>    contenido coherente.
+> 6. Cuando el usuario pida terminar/limpiar la demo, corre
+>    `./scripts/teardown.sh config.env --yes` — es un solo comando, no borres
+>    recursos uno por uno.
+>
+> **No reinventes la arquitectura.** Este repo ya resolvió, a base de prueba
+> y error contra el tenant real, varios problemas no obvios (ver sección
+> "Notas de implementación / troubleshooting" al final). Si `deploy.sh` falla
+> con un error nuevo, agrégalo a esa sección después de resolverlo, no lo
+> dejes sin documentar.
+
 Scripts automatizados y repetibles para desplegar y eliminar el ambiente completo
 de la demo "Invoice Audit Agent" en Microsoft Foundry — usados para mostrar el
 ciclo de vida de un agente de IA (construir, fundamentar, observar y ajustar)
@@ -16,7 +50,7 @@ este repo es la fuente de verdad para repetir el deploy N veces.
 | Resource group | Contenedor único — permite borrar todo con un solo comando |
 | Foundry account + project (`Microsoft.CognitiveServices`, kind `AIServices`) | El proyecto de Microsoft Foundry |
 | 3 model deployments | Modelo del agente, modelo de la knowledge base, modelo de embeddings |
-| Storage account + contenedor blob | Aloja los 4 documentos de conocimiento (contrato, rate card, 2 facturas) versionados en `knowledge-docs/` |
+| Knowledge source (tipo File, subida directa) | Aloja los 4 documentos de conocimiento (contrato, rate card, 2 facturas) versionados en `knowledge-docs/` — sin necesidad de storage account |
 | Azure AI Search (serverless) | Motor de indexación/recuperación detrás de Foundry IQ |
 | Knowledge source + Knowledge base | Conectan los documentos al agente vía Foundry IQ |
 | Conexión de proyecto (MCP) | Permite al agente invocar la knowledge base como herramienta |
@@ -108,8 +142,60 @@ asignados (hasta 10 minutos por paso) en vez de fallar de inmediato.
 ## Costos
 
 Todos los recursos usan SKUs de bajo costo o pay-as-you-go (Search Serverless,
-Storage Standard_LRS, App Insights pay-per-GB). El consumo real depende de
-cuántas preguntas le hagas al agente. Como referencia, una build completa +
-3 preguntas de prueba costó ~US$0.30–0.50 en consumo de modelo. **Siempre
-corre `teardown.sh` al terminar una demo** para evitar cargos innecesarios
-entre una presentación y la siguiente.
+App Insights pay-per-GB). El consumo real depende de cuántas preguntas le
+hagas al agente. Como referencia, una build completa + 3 preguntas de prueba
+costó ~US$0.30–0.50 en consumo de modelo. **Siempre corre `teardown.sh` al
+terminar una demo** para evitar cargos innecesarios entre una presentación y
+la siguiente.
+
+## Notas de implementación / troubleshooting
+
+Estos son problemas reales encontrados al validar `deploy.sh` contra el
+tenant real — ya están resueltos en el script, pero quedan documentados aquí
+por si reaparecen (p. ej. si Azure cambia una API) o si extiendes el script:
+
+1. **`semanticSearch` debe ser `"standard"`, no el valor por defecto `"free"`.**
+   Un Azure AI Search serverless creado sin este flag falla al crear
+   cualquier Knowledge Source con un error 500 genérico
+   (`"Failed to create or update Knowledge Source" / "An error has occurred."`)
+   sin ningún detalle útil. Se descubrió comparando, campo por campo, un
+   servicio creado manualmente que sí funcionaba contra uno recién creado por
+   script. `deploy.sh` ya fuerza este valor tanto en creación como en
+   actualización de un servicio existente.
+
+2. **Azure AI Search serverless requiere la API version `2026-09-01-Preview`**
+   en este tenant — versiones anteriores (`2025-05-01`, `2025-02-01-Preview`,
+   etc.) devuelven `InvalidSkuName` para el SKU `serverless`.
+
+3. **Storage Account con acceso público bloqueado por política del tenant.**
+   Algunas suscripciones fuerzan `publicNetworkAccess: Disabled` en cuentas de
+   storage nuevas, lo que rompe la subida de blobs vía CLI/REST. Se evitó el
+   problema de raíz: el script ya no usa Storage Account en absoluto — sube
+   los documentos directamente al Knowledge Source tipo `file` vía la API de
+   datos de Azure AI Search (`POST .../knowledgesources('name')/files`).
+
+4. **`az cognitiveservices account create --identity-type SystemAssigned` no
+   existe** en versiones recientes del CLI — el flag correcto es solo
+   `--assign-identity` (sin especificar el tipo).
+
+5. **Resource providers no registrados en una suscripción nueva** (en
+   particular `Microsoft.Storage`) causan `SubscriptionNotFound` en llamadas
+   que no tienen nada que ver con storage. El script ahora registra
+   automáticamente todos los providers necesarios antes de crear nada.
+
+6. **Cognitive Services (cuentas Foundry) usan soft-delete.** Si corres
+   `teardown.sh` y vuelves a desplegar con el mismo `FOUNDRY_ACCOUNT_NAME`,
+   Azure devuelve `FlagMustBeSetForRestore` en vez de crear una cuenta nueva.
+   Tanto `deploy.sh` como `teardown.sh` detectan y purgan automáticamente
+   cuentas soft-deleted con el mismo nombre.
+
+7. **La API de Responses cambió el nombre del campo del agente.** La
+   documentación y el ejemplo original usaban `"agent": {"type": "agent_reference", ...}`,
+   pero el tenant actual exige `"agent_reference": {"type": "agent_reference", ...}`
+   como campo raíz — `"agent"` ahora devuelve `invalid_payload` (deprecado).
+
+8. **La conexión MCP y el agente deben usar el mismo nombre como
+   `server_label` y `project_connection_id`.** Si no coinciden exactamente
+   con el nombre real de la conexión creada (`PROJECT_CONNECTION_NAME` en
+   `config.env`), el agente se crea pero no logra invocar la knowledge base.
+

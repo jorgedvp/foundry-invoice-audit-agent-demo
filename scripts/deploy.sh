@@ -274,6 +274,17 @@ else
 fi
 
 step "10/10 — Create the agent and connect the knowledge base"
+# Defensive cleanup: the Foundry agent registry has been observed to retain a stale
+# agent definition under the same name even after the resource group/account that
+# created it was fully deleted and purged (it survives independently of the ARM
+# resource lifecycle, keyed by project+agent name). If a leftover agent exists with
+# an outdated config (e.g. pointing at a previous deployment's Search service/model
+# names), every creation attempt below would otherwise fail forever with HTTP 409
+# "Agent already exists" while curl -sf reports it as "not ready yet". Always delete
+# any existing agent with this name first (ignore 404) so creation is truly idempotent.
+curl -s -X DELETE "${PROJECT_ENDPOINT}/agents/${AGENT_NAME}?api-version=v1" \
+  -H "Authorization: Bearer $(ai_token)" >/dev/null 2>&1 || true
+
 agent_body=$(cat <<JSON
 {
   "name": "$AGENT_NAME",
@@ -301,20 +312,44 @@ retry "$RBAC_WAIT_TIMEOUT_SECONDS" "$RBAC_POLL_INTERVAL_SECONDS" "Agent '$AGENT_
 
 if [ "${SEED_SAMPLE_TRAFFIC:-true}" = "true" ]; then
   step "Seeding sample traffic (for Traces/Monitor)"
-  ai_tok=$(ai_token)
   send_sample() {
     local question="$1"
     curl -s -X POST "${PROJECT_ENDPOINT}/openai/v1/responses" \
-      -H "Authorization: Bearer $ai_tok" -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $(ai_token)" -H "Content-Type: application/json" \
       -d "{\"agent_reference\": {\"type\": \"agent_reference\", \"name\": \"$AGENT_NAME\"}, \"input\": \"$question\"}" \
       -o /tmp/sample_resp.json -w "%{http_code}"
   }
   Q1="Please audit invoice INV-2026-08602 from ServicePro Staffing Solutions (Columbus, OH site, August 2026) against the MSA and the overtime pre-approval log. Flag any non-billable overtime and tell me the dollar amount at risk."
   Q2="Now audit invoice INV-2026-08487 from ServicePro Staffing Solutions (Queretaro, MX site, July 2026) the same way. Is it compliant?"
   Q3="What is the SLA fill-rate requirement for ServicePro and what happens if they miss it? Cite the MSA section."
+
+  # The agent's MCP tool call to the knowledge base goes through its own data-plane
+  # RBAC check on the Search service. This check has been observed to lag well behind
+  # both the role-assignment write (instant) AND even the agent-creation success check
+  # above (which only verifies the agent object was created, not that retrieval works
+  # yet) -- by several extra minutes on a freshly created/purged environment. Retry the
+  # FIRST sample question until it actually returns HTTP 200 (not just "curl succeeded");
+  # once real retrieval has worked once, propagation is complete and the rest go through
+  # immediately.
+  first=true
   for q in "$Q1" "$Q2" "$Q3"; do
-    code=$(send_sample "$q")
-    if [ "$code" = "200" ]; then ok "Sample question answered (HTTP $code)"; else warn "Sample question returned HTTP $code — send it manually from the Playground if Traces look empty."; cat /tmp/sample_resp.json >&2 || true; fi
+    if [ "$first" = "true" ]; then
+      waited=0
+      while true; do
+        code=$(send_sample "$q")
+        [ "$code" = "200" ] && break
+        if [ "$waited" -ge "$RBAC_WAIT_TIMEOUT_SECONDS" ]; then
+          break
+        fi
+        warn "Knowledge base retrieval not ready yet (HTTP $code), retrying in ${RBAC_POLL_INTERVAL_SECONDS}s (waited ${waited}s/${RBAC_WAIT_TIMEOUT_SECONDS}s)"
+        sleep "$RBAC_POLL_INTERVAL_SECONDS"
+        waited=$((waited + RBAC_POLL_INTERVAL_SECONDS))
+      done
+      first=false
+    else
+      code=$(send_sample "$q")
+    fi
+    if [ "$code" = "200" ]; then ok "Sample question answered (HTTP $code)"; else warn "Sample question returned HTTP $code -- send it manually from the Playground if Traces look empty."; cat /tmp/sample_resp.json >&2 || true; fi
     sleep 3
   done
 fi

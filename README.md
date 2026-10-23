@@ -199,3 +199,36 @@ por si reaparecen (p. ej. si Azure cambia una API) o si extiendes el script:
    con el nombre real de la conexión creada (`PROJECT_CONNECTION_NAME` en
    `config.env`), el agente se crea pero no logra invocar la knowledge base.
 
+9. **El registro de agentes de Foundry sobrevive al borrado del resource
+   group y al purge de la cuenta.** Se detectó que, al recrear el ambiente
+   completo (borrar `rg-invoice-audit-demo` + purgar la cuenta Foundry
+   soft-deleted + volver a desplegar con los mismos nombres), el agente
+   `invoice-audit-agent` ya existía con la configuración **vieja** (apuntando
+   al Search/modelo del despliegue anterior) y cada intento de creación fallaba
+   con `409 Conflict`. El retry-loop de `deploy.sh` reportaba esto como
+   `"not ready yet"` indefinidamente hasta agotar el timeout de 600s, aunque el
+   agente nunca se iba a actualizar solo reintentando el mismo POST. `deploy.sh`
+   ahora borra defensivamente (`DELETE /agents/{name}`, ignorando 404) cualquier
+   agente preexistente con el mismo nombre justo antes de crearlo, para que la
+   creación sea realmente idempotente.
+
+10. **La propagación de RBAC para la llamada de *retrieval* del MCP
+    (`knowledge_base_retrieve`) puede tardar varios minutos más que la
+    creación del agente en sí.** El `POST /agents` puede devolver éxito
+    inmediatamente, pero el primer intento real de invocar la knowledge base
+    desde el agente puede devolver `HTTP 403 Forbidden` ("Access denied when
+    connecting to the MCP server...") durante varios minutos aunque los roles
+    (`Search Index Data Reader` / `Search Service Contributor` en el servicio
+    de Search para la identidad administrada del proyecto, y
+    `Cognitive Services User` en la cuenta Foundry para la identidad del
+    servicio de Search) ya estén asignados y confirmados vía
+    `az role assignment list`. Es exclusivamente un retraso de propagación en
+    el plano de datos de Search, no un problema de configuración. `deploy.sh`
+    ahora reintenta automáticamente la primera pregunta de muestra (no solo la
+    creación del agente) hasta que realmente devuelva `HTTP 200`, usando los
+    mismos `RBAC_WAIT_TIMEOUT_SECONDS` / `RBAC_POLL_INTERVAL_SECONDS` de
+    `config.env`. Ocasionalmente también se observó un `403` intermitente y
+    aislado en una sola pregunta después de que otras ya habían funcionado —
+    reintentar una vez más resuelve esto (flakiness del servicio preview, no
+    un problema de RBAC real).
+

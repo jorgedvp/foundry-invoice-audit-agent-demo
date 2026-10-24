@@ -1,4 +1,4 @@
-# Invoice Audit Agent — Demo de Foundry (Capítulo 2: Build, Observe & Tune)
+# Invoice Audit Agent — Demo de Foundry (Capítulos 2 y 3: Build/Observe/Tune + Seguridad)
 
 > ## 🤖 Instrucciones para el agente de IA (léeme primero)
 >
@@ -17,7 +17,7 @@
 > 4. **Un solo paso queda manual y requiere el portal** (ver sección
 >    "Qué construye `deploy.sh`" abajo): crear el Evaluator custom y correr
 >    la evaluación. Dile al usuario que ese paso falta y sigue el
->    [guion de navegación](deliverables/Guion-Invoice-Audit-Agent-Capitulo2.docx),
+>    [guion de navegación](deliverables/Guion-Invoice-Audit-Agent-Capitulo2-con-imagenes.docx),
 >    sección "Sección 5 — Tune". No intentes automatizarlo por REST — ya se
 >    intentó y esa función del portal no tiene API pública estable.
 > 5. Valida el deploy enviando al menos una pregunta de prueba al agente
@@ -27,6 +27,16 @@
 > 6. Cuando el usuario pida terminar/limpiar la demo, corre
 >    `./scripts/teardown.sh config.env --yes` — es un solo comando, no borres
 >    recursos uno por uno.
+>
+> **El Capítulo 3 (seguridad) NO requiere un ambiente ni tenant separado.**
+> Reutiliza el mismo agente/recursos del Capítulo 2 para mostrar gobierno e
+> identidad de agentes (Entra ID) y postura de seguridad (Defender for Cloud).
+> Ver sección "Capítulo 3 — Seguridad" abajo antes de navegar esa parte del
+> guion, y **nunca deshabilites el acceso de red pública real** del recurso
+> Foundry en vivo — rompería el agente que el usuario necesita seguir usando.
+> La acción de contención real y segura de ejecutar en esta demo compartida es
+> "asignar owner + due date" sobre la recomendación de Defender, no aplicar el
+> Quick Fix de remediación.
 >
 > **No reinventes la arquitectura.** Este repo ya resolvió, a base de prueba
 > y error contra el tenant real, varios problemas no obvios (ver sección
@@ -38,7 +48,9 @@ Scripts automatizados y repetibles para desplegar y eliminar el ambiente complet
 de la demo "Invoice Audit Agent" en Microsoft Foundry — usados para mostrar el
 ciclo de vida de un agente de IA (construir, fundamentar, observar y ajustar)
 con un caso de uso real: auditoría de facturas de staffing contra un contrato
-y un registro de aprobaciones de horas extra.
+y un registro de aprobaciones de horas extra. El mismo ambiente también cubre
+el gobierno y la seguridad de ese agente (identidad en Entra ID, postura de
+seguridad en Defender for Cloud) — ver "Capítulo 3 — Seguridad" más abajo.
 
 No necesitas recordar los pasos manuales ni volver a pedir ayuda cada vez —
 este repo es la fuente de verdad para repetir el deploy N veces.
@@ -135,8 +147,11 @@ asignados (hasta 10 minutos por paso) en vez de fallar de inmediato.
 │   ├── teardown.sh               # Elimina todo el ambiente (1 comando)
 │   └── lib/common.sh             # Helpers compartidos (logging, reintentos, RBAC)
 └── deliverables/
-    ├── Guion-Invoice-Audit-Agent-Capitulo2.docx   # Guion de navegación para la demo
-    └── Invoice-Audit-Agent-Resumen.pptx            # Presentación de resumen ejecutivo
+    ├── Guion-Invoice-Audit-Agent-Capitulo2.docx                # Guion original (sin imágenes)
+    ├── Guion-Invoice-Audit-Agent-Capitulo2-con-imagenes.docx   # Guion unificado Cap. 2 + 3, con capturas reales
+    ├── Invoice-Audit-Agent-Resumen.pptx                        # Presentación de resumen ejecutivo
+    ├── screenshots/                                            # Capturas del Capítulo 2 (Build/Observe/Tune)
+    └── screenshots-cap3/                                       # Capturas del Capítulo 3 (Seguridad/Entra ID/Defender)
 ```
 
 ## Costos
@@ -147,6 +162,49 @@ hagas al agente. Como referencia, una build completa + 3 preguntas de prueba
 costó ~US$0.30–0.50 en consumo de modelo. **Siempre corre `teardown.sh` al
 terminar una demo** para evitar cargos innecesarios entre una presentación y
 la siguiente.
+
+## Capítulo 3 — Seguridad (identidad de agentes y gobierno)
+
+El mismo ambiente desplegado para el Capítulo 2 sirve, sin pasos de deploy
+adicionales, para mostrar gobierno y seguridad de agentes de IA en producción.
+No es una demo aparte ni requiere otro tenant — es el mismo
+`invoice-audit-agent` visto desde Entra ID y Microsoft Defender for Cloud.
+
+**Qué es scriptable (ya automatizado):**
+- El plan "AI" (Standard) de Defender for Cloud se activa automáticamente al
+  desplegar el Capítulo 2 en una suscripción nueva (trial de 30 días). Para
+  habilitarlo manualmente en otra suscripción:
+  `az security pricing create --name AI --tier Standard`.
+- Verificar planes activos: `az security pricing list -o table`.
+
+**Qué es solo-portal (no tiene API pública estable para automatizar la
+navegación, pero sí para consultar datos si se requiere scripting futuro):**
+- Microsoft Entra Agent ID (`entra.microsoft.com` → Entra ID → Agents): registro
+  de identidad de los agentes del tenant. Disponible de forma nativa, sin
+  activación.
+- Microsoft Defender for Cloud (`portal.azure.com` → Microsoft Defender for
+  Cloud): Inventory, Recommendations, Attack path analysis, Cloud Security
+  Explorer.
+
+**Secciones del guion (ver
+[`deliverables/Guion-Invoice-Audit-Agent-Capitulo2-con-imagenes.docx`](deliverables/Guion-Invoice-Audit-Agent-Capitulo2-con-imagenes.docx),
+capítulo 3 al final del documento):**
+1. Identidad de agentes en Entra ID (Overview + detalle de una identidad).
+2. Hallazgo real de seguridad en Defender for Cloud (recomendaciones
+   "Unhealthy" detectadas automáticamente sobre el recurso Foundry real).
+3. Mapa de relaciones / Attack path analysis (honesto: puede mostrar "No
+   attack paths found" si el plan Defender se activó hace menos de 24-48h —
+   el grafo de relaciones tarda en indexar completamente).
+4. Contención y auditoría: asignar owner + due date sobre la recomendación
+   (equivalente real y seguro al "Restrict App Execution + comentario de
+   auditoría" del guion original de Caldova).
+
+**⚠️ Regla de seguridad para quien ejecute esta demo:** nunca apliques la
+remediación completa (deshabilitar acceso de red pública, botón "Fix" /
+Quick Fix) sobre el recurso Foundry en vivo si el ambiente sigue en uso para
+el Capítulo 2 — rompería el Playground, la API, y las Evaluations. La acción
+de contención segura y reversible de esta demo es "asignar owner + due date",
+no la remediación de red.
 
 ## Notas de implementación / troubleshooting
 

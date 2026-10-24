@@ -148,7 +148,8 @@ asignados (hasta 10 minutos por paso) en vez de fallar de inmediato.
 │   └── lib/common.sh             # Helpers compartidos (logging, reintentos, RBAC)
 └── deliverables/
     ├── Guion-Invoice-Audit-Agent-Capitulo2.docx                # Guion original (sin imágenes)
-    ├── Guion-Invoice-Audit-Agent-Capitulo2-con-imagenes.docx   # Guion unificado Cap. 2 + 3, con capturas reales
+    ├── Guion-Invoice-Audit-Agent-Capitulo2-con-imagenes.docx   # Guion unificado Cap. 2 + 3, con capturas reales y contexto completo
+    ├── Cheat-Sheet-Invoice-Audit-Demo.docx                     # Versión compacta (tabla, 2 páginas) para presentar en vivo
     ├── Invoice-Audit-Agent-Resumen.pptx                        # Presentación de resumen ejecutivo
     ├── screenshots/                                            # Capturas del Capítulo 2 (Build/Observe/Tune)
     └── screenshots-cap3/                                       # Capturas del Capítulo 3 (Seguridad/Entra ID/Defender)

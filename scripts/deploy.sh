@@ -155,6 +155,20 @@ assign_role "$PROJECT_PRINCIPAL_ID" "Search Service Contributor" "$SEARCH_ID"
 
 step "7/10 — Knowledge source (File, direct upload) + knowledge base (Foundry IQ)"
 KB_MODEL_DEPLOY_URI="${FOUNDRY_ENDPOINT%/}"
+# Defensive cleanup: Azure AI Search rejects updating an existing Knowledge Source's
+# embedding endpoint ("The embedding endpoint cannot be changed") once it has been set.
+# If this script is ever re-run against the same Search service after the Foundry
+# account was recreated under a different name (e.g. after a purge, or because
+# FOUNDRY_ACCOUNT_NAME changed in config.env), the leftover Knowledge Source/Base from
+# the previous account would permanently block every future PUT with that error. Always
+# delete any existing Knowledge Base and Knowledge Source with these names first
+# (ignore 404) so creation is truly idempotent regardless of which Foundry account
+# previously owned them.
+curl -s -X DELETE "${SEARCH_ENDPOINT}/knowledgebases('${KNOWLEDGE_BASE_NAME}')?api-version=2026-08-01-preview" \
+  -H "Authorization: Bearer $(search_token)" >/dev/null 2>&1 || true
+curl -s -X DELETE "${SEARCH_ENDPOINT}/knowledgesources('${KNOWLEDGE_SOURCE_NAME}')?api-version=2026-08-01-preview" \
+  -H "Authorization: Bearer $(search_token)" >/dev/null 2>&1 || true
+
 knowledge_source_body=$(cat <<JSON
 {
   "name": "$KNOWLEDGE_SOURCE_NAME",

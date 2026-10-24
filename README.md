@@ -232,3 +232,31 @@ por si reaparecen (p. ej. si Azure cambia una API) o si extiendes el script:
     reintentar una vez más resuelve esto (flakiness del servicio preview, no
     un problema de RBAC real).
 
+11. **NUNCA purgues y re-crees la cuenta Foundry con el mismo nombre si el
+    portal "nuevo" de Foundry (ai.azure.com/nextgen) ya la indexó.** La
+    documentación oficial de Microsoft lo advierte explícitamente
+    ("Don't purge the Foundry account resource. A purge makes recovery
+    involve additional steps and considerations not documented here") y en
+    este tenant el síntoma fue muy concreto: tras purgar y re-desplegar con
+    el mismo `FOUNDRY_ACCOUNT_NAME`, **la API de datos del agente funcionaba
+    perfecto** (`HTTP 200`, respuestas correctas con citas), pero el portal
+    nuevo (`ai.azure.com/nextgen`) mostraba permanentemente
+    `"Agent not found"` / `"Error loading your agents. Project not found"`
+    en las pestañas Agents/Build/Traces — un registro interno del portal
+    quedó apuntando al proyecto purgado y nunca se resincronizó, ni siquiera
+    esperando 20+ minutos. La única solución confirmada fue dejar de reusar
+    el nombre purgado: desplegar la cuenta Foundry con un **nombre nuevo**
+    (p. ej. `invoice-audit-foundry2`) resolvió el problema al instante en el
+    portal nuevo, reutilizando sin problema el mismo Azure AI Search y
+    Application Insights ya existentes. **Efecto secundario importante:**
+    como el Search Service y sus Knowledge Source/Knowledge Base quedan
+    ligados al *endpoint* de la cuenta Foundry con la que se crearon, y
+    Azure AI Search rechaza cambiar ese endpoint en un recurso existente
+    (`"The embedding endpoint cannot be changed"`), `deploy.sh` ahora borra
+    defensivamente (ignorando 404) cualquier Knowledge Base/Knowledge Source
+    preexistente con esos nombres antes de recrearlos — igual que ya hacía
+    con el agente — para que un cambio de `FOUNDRY_ACCOUNT_NAME` (por este
+    mismo motivo, o por cualquier redeploy futuro) sea siempre idempotente.
+    `config.env.example` usa `invoice-audit-foundry2` como nombre por
+    defecto precisamente por esta lección.
+

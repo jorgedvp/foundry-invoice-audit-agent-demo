@@ -152,6 +152,11 @@ step "6/10 — RBAC role assignments (allow 1–10 min to propagate)"
 assign_role "$SEARCH_PRINCIPAL_ID" "Cognitive Services User" "$FOUNDRY_ACCOUNT_ID"
 assign_role "$PROJECT_PRINCIPAL_ID" "Search Index Data Reader" "$SEARCH_ID"
 assign_role "$PROJECT_PRINCIPAL_ID" "Search Service Contributor" "$SEARCH_ID"
+# Required for Capítulo 2's "Recurring evaluations" and "Scheduled red teaming" demo
+# add-ons (Monitor tab). Without this, the "Create recurring evaluation" wizard fails
+# with: "The project managed identity could not access the project... lacks the
+# required data action Microsoft.CognitiveServices/accounts/AIServices/assets/read".
+assign_role "$PROJECT_PRINCIPAL_ID" "Foundry User" "$FOUNDRY_ACCOUNT_ID"
 
 step "7/10 — Knowledge source (File, direct upload) + knowledge base (Foundry IQ)"
 KB_MODEL_DEPLOY_URI="${FOUNDRY_ENDPOINT%/}"
@@ -374,8 +379,15 @@ ok "Deployment complete."
 echo "Project endpoint:   $PROJECT_ENDPOINT"
 echo "Portal URL:         https://ai.azure.com (select project '$PROJECT_NAME' under account '$FOUNDRY_ACCOUNT_NAME')"
 echo
-echo "Remaining manual step (~5 min, documented in the guide):"
-echo "  - Create the custom Evaluator ('Contract-Policy-Evidence Compliance') and run an"
-echo "    evaluation against the seeded traces. This relies on the portal's rubric"
+echo "Remaining manual steps (documented in the guide):"
+echo "  - (~5 min) Create the custom Evaluator ('Contract-Policy-Evidence Compliance') and"
+echo "    run an evaluation against the seeded traces. This relies on the portal's rubric"
 echo "    auto-generation feature, which does not yet have a stable public REST API."
+echo "  - (~5 min, optional) Pre-configure the Monitor tab's 'Recurring evaluations' (Build >"
+echo "    Evaluations > Create > Frequency = Recurring) and, if desired, a one-time 'Red"
+echo "    team' scan (Build > Evaluations > Red team > Create). Both are portal-only wizards"
+echo "    with no stable public REST API yet. Note: the 'Create red teaming run' wizard has"
+echo "    NO recurring/scheduled option -- it only submits a one-time run, even though the"
+echo "    Monitor tab separately shows a 'Scheduled red teaming runs' toggle (still Disabled"
+echo "    / not wired to this wizard as of this writing)."
 echo "============================================================================="

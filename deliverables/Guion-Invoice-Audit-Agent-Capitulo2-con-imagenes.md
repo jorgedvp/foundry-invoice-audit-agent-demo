@@ -281,31 +281,47 @@ Se envió como **"invoice-audit-security-scan"** y quedó corriendo en vivo cont
 
 *"Esto no es un checklist de seguridad genérico — es un agente de IA especializado que ataca a su propio agente de producción con las mismas técnicas que usaría un adversario real (inyección de prompts, jailbreaks codificados, intentos de que el agente ejecute acciones fuera de su propósito), usando el contexto específico de sus herramientas y datos conectados."*
 
+### Lección real de esta sesión: el escaneo se atascó (1h42m, 0 resultados) — así lo resolvimos
+
+**Transparencia total, porque esto también es parte del guion de seguridad:** ese primer escaneo de 9 categorías quedó atascado. Después de **1 hora 42 minutos**, el estado seguía "In progress", con **0 resultados** (`result_counts: {"total": 0, "passed": 0, "failed": 0}`) y **sin ningún error reportado** (`"error": null`) — confirmado revisando el "Raw JSON" del run. No es un escaneo lento: está atascado, probablemente por ser una función Preview con carga de backend compartida.
+
+**Qué hicimos:**
+
+1. Seleccionamos la fila del run atascado y presionamos **"Cancel runs"** — quedó en estado "Canceled" sin problema.
+2. Creamos un **red team nuevo** (no un "Add run" al mismo red team — ojo: Foundry avisa *"Risk types remain the same across all runs in a red team. Create a new red team if your risk category changes."*, así que para reducir categorías hay que crear uno desde cero).
+3. El nuevo red team, `invoice-audit-security-scan-quick`, usa solo **2 categorías de riesgo** (Prohibited actions + Ungrounded attributes, en vez de las 9 originales) y **3 consultas semilla por categoría** (en vez de 5) — 6 consultas en total en vez de 45.
+
+**Resultado:** el escaneo liviano avanzó con normalidad (sin atascarse) en los minutos siguientes.
+
+**Mensaje de valor para el cliente:** *"Esto mismo nos pasó a nosotros armando esta demo — y es una lección honesta para cualquier equipo que empiece con estas funciones Preview: empiecen acotado (2-3 categorías de riesgo) para validar que todo funciona, y solo después amplíen a un escaneo completo de 9 categorías una vez que confirmen que el ambiente responde bien."*
+
 ### Programar el red teaming para que corra solo — descubrimiento clave
 
 **Corrección importante respecto a lo que pensábamos al investigar esto:** el asistente **"Create red teaming run"** (el que se muestra arriba) en efecto NO tiene un paso de frecuencia — cada clic en "Create" ahí genera una corrida puntual. **Pero eso no significa que el red teaming no se pueda programar.** La programación vive en otro lugar: dentro del mismo diálogo **"Monitor settings"** (ver sección anterior), seleccionando **"Scheduled red teaming runs"** en el panel izquierdo.
 
-Ese panel no abre un asistente nuevo — es un simple interruptor que **reutiliza un red team y una corrida que ya existan** (en nuestro caso, el `invoice-audit-security-scan` recién creado) y les aplica una cadencia:
+Ese panel no abre un asistente nuevo — es un simple interruptor que **reutiliza un red team y una corrida que ya existan** y les aplica una cadencia:
 
 ![Captura 16](screenshots/16-scheduled-redteam-configured.png)
 
 *Captura 16 — "Scheduled red teaming runs" activado: Red team = invoice-audit-security-scan, Red teaming run = redteam-run-zm4cg1yq, Schedule = Monthly.*
 
-**Configuración real aplicada:**
+**Configuración real aplicada (en el momento de capturar esto):**
 
-- **Red team:** invoice-audit-security-scan (el mismo que se creó y documentó arriba).
-- **Red teaming run:** redteam-run-zm4cg1yq (la corrida puntual ya ejecutada — sirve de plantilla para las corridas futuras).
+- **Red team:** invoice-audit-security-scan.
+- **Red teaming run:** redteam-run-zm4cg1yq.
 - **Schedule:** Monthly (opciones disponibles: Hourly, Daily, Weekly, Monthly).
+
+⚠️ **Pendiente de actualizar antes de la demo final:** el red team `invoice-audit-security-scan` usado como plantilla arriba es justo el que quedó atascado y **cancelamos** (ver lección anterior). La programación quedó apuntando a un run cancelado — hay que **reabrir "Scheduled red teaming runs" en Monitor settings y volver a seleccionar** el red team nuevo (`invoice-audit-security-scan-quick` → `redteam-run-m56b284i`) una vez que termine, para que la plantilla programada sea una corrida real y exitosa, no la cancelada.
 
 Tras enviar ("Submit"), "Scheduled red teaming runs" pasa de "Disabled" a **"Enabled"** en el panel izquierdo — confirmado reabriendo el diálogo:
 
 ![Captura 19](screenshots/19-scheduled-redteam-saved-confirmed.png)
 
-*Captura 19 — Confirmación: "Scheduled red teaming runs" ahora en estado "Enabled" con la configuración guardada.*
+*Captura 19 — Confirmación: "Scheduled red teaming runs" ahora en estado "Enabled" con la configuración guardada (pendiente de repuntar al red team nuevo).*
 
 **Mensaje de valor para el cliente (versión corregida y más fuerte)**
 
-*"Y esto no se queda en una sola prueba de seguridad — igual que programamos la evaluación de calidad semanal, podemos programar que este mismo ataque adversarial se repita automáticamente cada mes, usando como plantilla el escaneo que ya corrimos. Es decir: ni la calidad ni la seguridad del agente dependen de que alguien se acuerde de probarlas — las dos quedan corriendo solas."*
+*"Y esto no se queda en una sola prueba de seguridad — igual que programamos la evaluación de calidad semanal, podemos programar que este mismo ataque adversarial se repita automáticamente cada mes, usando como plantilla un escaneo que ya corrió con éxito. Es decir: ni la calidad ni la seguridad del agente dependen de que alguien se acuerde de probarlas — las dos quedan corriendo solas."*
 
 # Sección 5 — Tune: Evaluator y mejora continua
 

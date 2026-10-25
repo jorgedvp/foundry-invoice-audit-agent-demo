@@ -199,7 +199,7 @@ Dentro de **Build → Evaluations** hay 3 pestañas:
 
 El catálogo trae criterios genéricos (seguridad: violencia, contenido sexual, autolesión, discriminación; calidad: fluidez, coherencia, groundedness). Pero también se puede **crear un criterio propio, a medida del negocio**.
 
-**Ejemplo real con nuestro caso de facturas** (lo vemos en detalle en la Sección 5): creamos un evaluador custom llamado **"Contract-Policy-Evidence Compliance"**, que no pregunta algo genérico como "¿hay violencia?" — pregunta algo específico de este negocio: *¿el agente citó correctamente la cláusula del contrato (MSA-2025-0417) y la fila del registro de aprobaciones al dar su hallazgo sobre la factura?* Ese criterio no existe en el catálogo genérico — Microsoft Foundry lo generó a partir de una instrucción en lenguaje natural que le dimos, y quedó disponible para usarlo en cualquier evaluación futura.
+**Ejemplo con nuestro caso de facturas** (lo vamos a crear y mostrar en la Sección 5 — *todavía no existe en este ambiente, es el siguiente paso*): vamos a crear un evaluador custom llamado **"Contract-Policy-Evidence Compliance"**, que no va a preguntar algo genérico como "¿hay violencia?" — va a preguntar algo específico de este negocio: *¿el agente citó correctamente la cláusula del contrato (MSA-2025-0417) y la fila del registro de aprobaciones al dar su hallazgo sobre la factura?* Ese criterio no existe en el catálogo genérico — se genera a partir de una instrucción en lenguaje natural que le demos a Foundry, y una vez creado queda disponible para usarlo en cualquier evaluación futura.
 
 ### Red team: simular ataques, con un resultado real de este ambiente
 

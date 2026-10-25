@@ -183,19 +183,21 @@ https://ai.azure.com/nextgen/r/3eUZlgMRTK6RlV-UO9QbxQ,rg-invoice-audit-demo,,inv
 > **Objetivo de esta sección**
 > Mostrar que el monitoreo de un agente en producción no se limita a costo y tokens: Foundry permite automatizar la certificación continua de calidad/seguridad (evaluaciones recurrentes) y pruebas adversariales programadas (red teaming), sin que nadie tenga que ejecutarlas manualmente cada semana.
 
-**Dónde está esto en el portal**
+**Dónde está esto en el portal — ¡cuidado! hay DOS botones "Configure" en esta pantalla**
 
-Dentro de Monitor → botón **"Configure"** se abre el diálogo "Monitor settings" con 5 interruptores:
+En Monitor → Overview hay **dos tarjetas distintas que cada una tiene su propio botón "Configure"**: la tarjeta **"Evaluations"** (columna del medio) y la tarjeta **"Scheduled red teaming run issues"** (fila de abajo, a la izquierda). A simple vista parecen llevar a cosas distintas — **no es así: ambos botones abren exactamente el mismo diálogo "Monitor settings"**, solo que son dos puntos de entrada distintos a la misma pantalla. Confirmado en vivo haciendo clic en cada uno por separado.
 
-| Toggle | Qué controla |
+Ese diálogo "Monitor settings" tiene una lista de 5 opciones en el panel izquierdo:
+
+| Opción (panel izquierdo) | Qué controla |
 |---|---|
-| App Insights | Conexión a Application Insights (ya "Connected" desde el Capítulo 2 — Traces/Monitor). |
+| App. Insights resource | Conexión a Application Insights (ya "Connected" desde el Capítulo 2 — Traces/Monitor). |
 | Insights (Preview) | Paneles analíticos adicionales sobre el comportamiento del agente. |
 | Recurring evaluations | Evaluaciones de calidad/seguridad que se ejecutan solas en una cadencia fija. |
 | Scheduled red teaming runs | Pruebas de seguridad adversariales en una cadencia fija. |
 | Evaluation Alerts | Notificaciones cuando una métrica de evaluación cae bajo un umbral. |
 
-*Nota de nomenclatura confirmada en vivo: la tarjeta "Scheduled evaluations" que aparece en la vista general de Monitor y el toggle "Recurring evaluations" de este diálogo son la misma funcionalidad — Foundry la muestra con dos nombres en dos lugares distintos de la misma pantalla.*
+*Nota de nomenclatura confirmada en vivo: la tarjeta "Scheduled evaluations" que aparece en la vista general de Monitor y la opción "Recurring evaluations" de este diálogo son la misma funcionalidad — Foundry la muestra con dos nombres en dos lugares distintos de la misma pantalla.*
 
 ### Evaluaciones recurrentes — "weekly-quality-monitor" (ya configurada y activa)
 
@@ -259,9 +261,33 @@ Se envió como **"invoice-audit-security-scan"** y quedó corriendo en vivo cont
 
 **Mensaje de valor para el cliente**
 
-*"Esto no es un checklist de seguridad genérico — es un agente de IA especializado que ataca a su propio agente de producción con las mismas técnicas que usaría un adversario real (inyección de prompts, jailbreaks codificados, intentos de que el agente ejecute acciones fuera de su propósito), usando el contexto específico de sus herramientas y datos conectados. Y lo pueden dejar programado para que corra solo, sin que nadie tenga que acordarse de lanzarlo."*
+*"Esto no es un checklist de seguridad genérico — es un agente de IA especializado que ataca a su propio agente de producción con las mismas técnicas que usaría un adversario real (inyección de prompts, jailbreaks codificados, intentos de que el agente ejecute acciones fuera de su propósito), usando el contexto específico de sus herramientas y datos conectados."*
 
-*Nota: ver [resultados del escaneo] una vez finalizado — placeholder a completar en la siguiente revisión del guion.*
+### Programar el red teaming para que corra solo — descubrimiento clave
+
+**Corrección importante respecto a lo que pensábamos al investigar esto:** el asistente **"Create red teaming run"** (el que se muestra arriba) en efecto NO tiene un paso de frecuencia — cada clic en "Create" ahí genera una corrida puntual. **Pero eso no significa que el red teaming no se pueda programar.** La programación vive en otro lugar: dentro del mismo diálogo **"Monitor settings"** (ver sección anterior), seleccionando **"Scheduled red teaming runs"** en el panel izquierdo.
+
+Ese panel no abre un asistente nuevo — es un simple interruptor que **reutiliza un red team y una corrida que ya existan** (en nuestro caso, el `invoice-audit-security-scan` recién creado) y les aplica una cadencia:
+
+![Captura 16](screenshots/16-scheduled-redteam-configured.png)
+
+*Captura 16 — "Scheduled red teaming runs" activado: Red team = invoice-audit-security-scan, Red teaming run = redteam-run-zm4cg1yq, Schedule = Monthly.*
+
+**Configuración real aplicada:**
+
+- **Red team:** invoice-audit-security-scan (el mismo que se creó y documentó arriba).
+- **Red teaming run:** redteam-run-zm4cg1yq (la corrida puntual ya ejecutada — sirve de plantilla para las corridas futuras).
+- **Schedule:** Monthly (opciones disponibles: Hourly, Daily, Weekly, Monthly).
+
+Tras enviar ("Submit"), "Scheduled red teaming runs" pasa de "Disabled" a **"Enabled"** en el panel izquierdo — confirmado reabriendo el diálogo:
+
+![Captura 19](screenshots/19-scheduled-redteam-saved-confirmed.png)
+
+*Captura 19 — Confirmación: "Scheduled red teaming runs" ahora en estado "Enabled" con la configuración guardada.*
+
+**Mensaje de valor para el cliente (versión corregida y más fuerte)**
+
+*"Y esto no se queda en una sola prueba de seguridad — igual que programamos la evaluación de calidad semanal, podemos programar que este mismo ataque adversarial se repita automáticamente cada mes, usando como plantilla el escaneo que ya corrimos. Es decir: ni la calidad ni la seguridad del agente dependen de que alguien se acuerde de probarlas — las dos quedan corriendo solas."*
 
 # Sección 5 — Tune: Evaluator y mejora continua
 

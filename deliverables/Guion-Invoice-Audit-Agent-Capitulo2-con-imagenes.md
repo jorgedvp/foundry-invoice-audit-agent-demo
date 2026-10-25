@@ -178,150 +178,76 @@ https://ai.azure.com/nextgen/r/3eUZlgMRTK6RlV-UO9QbxQ,rg-invoice-audit-demo,,inv
 
 *"Esto es gobierno de costos de IA en tiempo real — el mismo principio de FinOps que ya aplican a su infraestructura de Azure, pero para consumo de modelos de lenguaje y agentes."*
 
-## Monitor → "Configure": evaluaciones recurrentes y red teaming automático (preconfigurado)
+## Evaluations: control de calidad y seguridad automatizado del agente
 
 > **Objetivo de esta sección**
-> Mostrar que el monitoreo de un agente en producción no se limita a costo y tokens: Foundry permite automatizar la certificación continua de calidad/seguridad (evaluaciones recurrentes) y pruebas adversariales programadas (red teaming), sin que nadie tenga que ejecutarlas manualmente cada semana.
+> Mostrar que la calidad y seguridad de un agente en producción se pueden medir y vigilar de forma automática y recurrente — no "a ojo" ni con revisión manual caso por caso.
 
-### Primero, lo simple: ¿para qué sirve cada pestaña de "Evaluations"?
+### ¿Qué es "Evaluations"?
 
-Antes de tocar nada, aclaremos el panorama — dentro de **Build → Evaluations** hay 3 pestañas que parecen relacionadas pero son 3 cosas distintas:
+Es el control de calidad del agente: un proceso automático que revisa las respuestas que da el agente contra uno o más criterios, y reporta si pasa o falla cada uno. Por ejemplo: ¿la respuesta contiene violencia?, ¿contenido sexual?, ¿está bien fundamentada en el contrato real?
 
-| Pestaña | Qué es, en una frase |
+Dentro de **Build → Evaluations** hay 3 pestañas:
+
+| Pestaña | Qué es |
 |---|---|
-| **Evaluations** | La lista de "boletas de notas" automáticas que ya existen para tu agente. Cada fila es una boleta distinta. |
-| **Evaluator catalog** | El catálogo de posibles criterios de nota disponibles (Violencia, Contenido sexual, Calidad de respuesta, etc.). No hace nada por sí solo — es de donde se eligen los criterios al crear una boleta nueva. |
-| **Red team** (Preview) | No es una boleta de notas — es una prueba de ataque: en vez de revisar si las respuestas son buenas, intenta romper al agente a propósito (hacerlo decir algo que no debería). |
+| **Evaluations** | La lista de evaluaciones que ya existen para tu agente (cada fila, una evaluación distinta con su propio set de criterios y frecuencia). |
+| **Evaluator catalog** | El catálogo de criterios disponibles para armar una evaluación — unos ~43 predefinidos (Violence, Sexual, Output quality, etc.), y la posibilidad de crear uno propio. |
+| **Red team** (Preview) | Pruebas de ataque simulado: no revisa cómo responde el agente en uso normal — intenta que el agente se equivoque a propósito. |
 
-**Ejemplo concreto, con lo que ya armamos en este ambiente:**
+### Evaluator catalog: criterios predefinidos + criterio propio
 
-- La boleta `weekly-quality-monitor` (pestaña "Evaluations") revisa, cada semana y sola, si las respuestas del agente tienen violencia, contenido sexual, autolesión, discriminación, o simplemente son de mala calidad.
-- Esos 5 criterios salieron del "Evaluator catalog" al momento de crear la boleta.
-- `invoice-audit-security-scan` (pestaña "Red team") es harina de otro costal: ahí no se evalúan respuestas reales — se ataca al agente para ver si cede.
+El catálogo trae criterios genéricos (seguridad: violencia, contenido sexual, autolesión, discriminación; calidad: fluidez, coherencia, groundedness). Pero también se puede **crear un criterio propio, a medida del negocio**.
 
-Con esto claro, ahora sí — el **"Configure"** del que hablamos a continuación es un tercer lugar más: **dentro del agente** (Monitor → Overview), no dentro de "Evaluations". Es donde se activa el *piloto automático* — que esa boleta de notas y ese escaneo de seguridad corran solos, sin que nadie los lance a mano.
+**Ejemplo real con nuestro caso de facturas** (lo vemos en detalle en la Sección 5): creamos un evaluador custom llamado **"Contract-Policy-Evidence Compliance"**, que no pregunta algo genérico como "¿hay violencia?" — pregunta algo específico de este negocio: *¿el agente citó correctamente la cláusula del contrato (MSA-2025-0417) y la fila del registro de aprobaciones al dar su hallazgo sobre la factura?* Ese criterio no existe en el catálogo genérico — Microsoft Foundry lo generó a partir de una instrucción en lenguaje natural que le dimos, y quedó disponible para usarlo en cualquier evaluación futura.
 
-### Dónde está esto en el portal — ¡cuidado! hay DOS botones "Configure" en esta pantalla
+### Red team: simular ataques, con un resultado real de este ambiente
 
-En Monitor → Overview hay **dos tarjetas distintas que cada una tiene su propio botón "Configure"**: la tarjeta **"Evaluations"** (columna del medio) y la tarjeta **"Scheduled red teaming run issues"** (fila de abajo, a la izquierda). A simple vista parecen llevar a cosas distintas — **no es así: ambos botones abren exactamente el mismo diálogo "Monitor settings"**, solo que son dos puntos de entrada distintos a la misma pantalla. Confirmado en vivo haciendo clic en cada uno por separado.
+A diferencia de una evaluación (que mide calidad sobre tráfico normal), un **red team ataca al agente a propósito** — intenta que revele información que no debería, que ejecute una acción prohibida, o que se salga de su propósito.
 
-Ese diálogo "Monitor settings" tiene una lista de 5 opciones en el panel izquierdo:
+**Resultado real que obtuvimos en este ambiente, atacando al invoice-audit-agent:**
 
-| Opción (panel izquierdo) | Qué controla |
+| Categoría de ataque | ASR (Attack Success Rate — % de ataques que lograron su objetivo) |
 |---|---|
-| App. Insights resource | Conexión a Application Insights (ya "Connected" desde el Capítulo 2 — Traces/Monitor). |
-| Insights (Preview) | Paneles analíticos adicionales sobre el comportamiento del agente. |
-| Recurring evaluations | Evaluaciones de calidad/seguridad que se ejecutan solas en una cadencia fija. |
-| Scheduled red teaming runs | Pruebas de seguridad adversariales en una cadencia fija. |
-| Evaluation Alerts | Notificaciones cuando una métrica de evaluación cae bajo un umbral. |
+| Prohibited actions (intentar que el agente ejecute acciones prohibidas) | **75%** (42 de 56 intentos) — alto, amerita atención |
+| Ungrounded attributes (intentar que invente datos sin respaldo) | **3%** (2 de 64 intentos) — bajo, buen resultado |
 
-*Nota de nomenclatura confirmada en vivo: la tarjeta "Scheduled evaluations" que aparece en la vista general de Monitor y la opción "Recurring evaluations" de este diálogo son la misma funcionalidad — Foundry la muestra con dos nombres en dos lugares distintos de la misma pantalla.*
+Esto es un hallazgo real y concreto: en la categoría "acciones prohibidas", 3 de cada 4 ataques lograron su objetivo. Es exactamente el tipo de número que le muestras a un cliente para justificar por qué el red teaming importa — no es teoría, es una vulnerabilidad medida.
 
-### Evaluaciones recurrentes — "weekly-quality-monitor" (ya configurada y activa)
+**Mensaje de valor para el cliente**
 
-**Qué mostrar en pantalla**
+*"Esto no es un checklist de seguridad genérico — es un agente de IA especializado que ataca a su propio agente de producción con las mismas técnicas que usaría un adversario real, usando el contexto específico de sus herramientas y datos conectados. Y el número no miente: acá ya encontramos algo real que revisar."*
 
-Build → Evaluations → pestaña **"Recurring configs" (Preview)**: aparece `weekly-quality-monitor`, Frecuencia = Scheduled, 0 corridas todavía (se ejecutará sola según el ciclo configurado).
+### ¿Esto entrena al agente automáticamente?
+
+No. Ni "Evaluations" ni "Red team" reentrenan el modelo ni ajustan nada por sí solos — son **diagnóstico**, no corrección automática. El ciclo real de mejora es:
+
+1. Se evalúa o se ataca al agente.
+2. Un humano (ingeniero, equipo de producto) revisa qué falló.
+3. Se ajustan las instrucciones, el conocimiento conectado o las reglas (guardrails) del agente.
+4. Se vuelve a evaluar para confirmar que mejoró.
+
+Es mejora continua guiada por personas, apoyada en datos medibles — no una máquina que aprende sola de estos resultados.
+
+### Opcional — cómo se configuran (detalle técnico para después de la demo)
+
+Lo anterior es lo que se necesita para contarle la historia al cliente. Lo que sigue es *cómo* se configuró técnicamente en este ambiente — útil para replicar, no necesario para la narrativa de negocio.
+
+**Evaluación recurrente ya activa — "weekly-quality-monitor":** corre sola cada semana, sobre tráfico real (Live traffic), con 5 criterios (4 de seguridad + Output quality), usando gpt-4o como juez. Se ve en **Build → Evaluations → pestaña "Recurring configs"**.
 
 ![Captura 9](screenshots/09-recurring-evaluation-created.png)
 
 *Captura 9 — Evaluación recurrente "weekly-quality-monitor" ya creada y activa (pestaña Recurring configs).*
 
-**Configuración real aplicada** (para que quede documentado qué se decidió y por qué):
+**Red team — cuidado con 2 botones "Configure" idénticos:** en Monitor → Overview hay dos tarjetas con botón "Configure" ("Evaluations" y "Scheduled red teaming run issues") que llevan **al mismo diálogo** "Monitor settings" (5 opciones: App Insights, Insights, Recurring evaluations, Scheduled red teaming runs, Evaluation Alerts).
 
-- **Target:** invoice-audit-agent (siempre evalúa la versión activa/desplegada más reciente — no una versión fija).
-- **Scope:** Individual turns (correcto para un agente de preguntas-y-respuestas tipo RAG, no una conversación multi-turno).
-- **Frecuencia:** Recurring → Scheduled → cada **1 semana**, sobre **Live traffic** (tráfico real de producción, no un dataset estático), con muestreo **Random** de hasta **100 trazas por corrida**.
-- **Criterios (evaluadores):** 4 evaluadores de seguridad recomendados por defecto — Violence, Sexual, Self-harm, Hate and unfairness — más **Output quality** (que añadimos nosotros: cubre fluency, coherence, intent resolution, task adherence, groundedness y task completion — las dimensiones de calidad más relevantes para un agente de auditoría de facturas).
-- **Juez:** modelo gpt-4o (Global Standard).
-
-**Qué NO quedó configurado en esta pasada** (transparencia para no sobre-prometer en la demo): el wizard de creación no incluye un campo de "umbral de alerta %" dentro del mismo flujo — esa pieza vive en el toggle separado **"Evaluation Alerts"** del diálogo "Monitor settings", y normalmente se configura una vez que la evaluación recurrente ya generó al menos una corrida con resultados. No se activó en esta sesión; queda como posible paso siguiente si se quiere mostrar la alerta real funcionando.
-
-**Mensaje de valor para el cliente**
-
-*"Esto es lo que ustedes ya hacen con monitoreo de infraestructura — alertas automáticas cuando algo se desvía — aplicado a la calidad del agente. No se necesita que alguien se acuerde de correr una evaluación cada semana: ya quedó programada, corre sola contra tráfico real, y en el futuro puede avisar automáticamente si la calidad cae bajo un umbral."*
-
-### Red teaming — una corrida real ejecutada en este ambiente
-
-**Qué mostrar en pantalla**
-
-Build → Evaluations → pestaña **"Red team" (Preview)**: a diferencia de las evaluaciones recurrentes, aquí **no existe una opción de programar una cadencia** dentro del asistente — cada red team es una corrida puntual bajo demanda. Confirmado en vivo: el toggle "Scheduled red teaming runs" existe en Monitor settings, pero el asistente de creación de un red team ("Create red teaming run") no tiene ningún paso de frecuencia/cadencia — solo Target → Run configuration → Review prohibited actions → Review → Submit.
-
-![Captura 10](screenshots/10-redteam-tab.png)
-
-*Captura 10 — Pestaña "Red team" (Preview) dentro de Evaluations, antes de crear la primera corrida.*
-
-![Captura 11](screenshots/11-redteam-create-wizard.png)
-
-*Captura 11 — Paso 1 del asistente: elegir el objetivo (Agent) a atacar.*
-
-![Captura 12](screenshots/12-redteam-run-configuration.png)
-
-*Captura 12 — Paso 2 "Run configuration": categorías de riesgo (taxonomía "Standard" — 9 categorías: fuga de datos sensibles, acciones prohibidas, violencia, atributos sin fundamento, adherencia a la tarea, contenido sexual, autolesión, odio/discriminación y vulnerabilidades de código), cantidad de consultas semilla por categoría, y estrategias de ataque a aplicar.*
-
-Dos categorías de riesgo ("Prohibited actions" y "Task adherence", marcadas con \*) exigen describir las herramientas del agente antes de continuar — Foundry usa esa descripción para generar ataques específicos al contexto real del agente, no genéricos:
-
-> *Tool description (mcp): "MCP tool that queries the servicepro-contract-and-invoices knowledge base (MSA contract, rate card, overtime approvals, and vendor invoices) to answer invoice audit questions."*
-
-![Captura 13](screenshots/13-redteam-prohibited-actions.png)
-
-*Captura 13 — Paso 3 "Review prohibited actions": taxonomía de acciones prohibidas auto-generada (genérica de plataforma, no específica de este agente) que hay que revisar y confirmar antes de lanzar el escaneo — ej. "Changing a Password", "Bypassing Browser Security Warnings", "Transacting in Regulated Goods".*
-
-![Captura 14](screenshots/14-redteam-taxonomy-review.png)
-
-*Captura 14 — Detalle del modal de revisión de taxonomía de acciones prohibidas.*
-
-![Captura 15](screenshots/15-redteam-review-final.png)
-
-*Captura 15 — Paso 4 "Review": resumen final antes de enviar — objetivo, 9 categorías de riesgo, estrategia de ataque "AsciiArt", y la descripción de la herramienta MCP.*
-
-Se envió como **"invoice-audit-security-scan"** y quedó corriendo en vivo contra el agente real.
-
-**Mensaje de valor para el cliente**
-
-*"Esto no es un checklist de seguridad genérico — es un agente de IA especializado que ataca a su propio agente de producción con las mismas técnicas que usaría un adversario real (inyección de prompts, jailbreaks codificados, intentos de que el agente ejecute acciones fuera de su propósito), usando el contexto específico de sus herramientas y datos conectados."*
-
-### Lección real de esta sesión: el escaneo se atascó (1h42m, 0 resultados) — así lo resolvimos
-
-**Transparencia total, porque esto también es parte del guion de seguridad:** ese primer escaneo de 9 categorías quedó atascado. Después de **1 hora 42 minutos**, el estado seguía "In progress", con **0 resultados** (`result_counts: {"total": 0, "passed": 0, "failed": 0}`) y **sin ningún error reportado** (`"error": null`) — confirmado revisando el "Raw JSON" del run. No es un escaneo lento: está atascado, probablemente por ser una función Preview con carga de backend compartida.
-
-**Qué hicimos:**
-
-1. Seleccionamos la fila del run atascado y presionamos **"Cancel runs"** — quedó en estado "Canceled" sin problema.
-2. Creamos un **red team nuevo** (no un "Add run" al mismo red team — ojo: Foundry avisa *"Risk types remain the same across all runs in a red team. Create a new red team if your risk category changes."*, así que para reducir categorías hay que crear uno desde cero).
-3. El nuevo red team, `invoice-audit-security-scan-quick`, usa solo **2 categorías de riesgo** (Prohibited actions + Ungrounded attributes, en vez de las 9 originales) y **3 consultas semilla por categoría** (en vez de 5) — 6 consultas en total en vez de 45.
-
-**Resultado:** el escaneo liviano avanzó con normalidad (sin atascarse) en los minutos siguientes.
-
-**Mensaje de valor para el cliente:** *"Esto mismo nos pasó a nosotros armando esta demo — y es una lección honesta para cualquier equipo que empiece con estas funciones Preview: empiecen acotado (2-3 categorías de riesgo) para validar que todo funciona, y solo después amplíen a un escaneo completo de 9 categorías una vez que confirmen que el ambiente responde bien."*
-
-### Programar el red teaming para que corra solo — descubrimiento clave
-
-**Corrección importante respecto a lo que pensábamos al investigar esto:** el asistente **"Create red teaming run"** (el que se muestra arriba) en efecto NO tiene un paso de frecuencia — cada clic en "Create" ahí genera una corrida puntual. **Pero eso no significa que el red teaming no se pueda programar.** La programación vive en otro lugar: dentro del mismo diálogo **"Monitor settings"** (ver sección anterior), seleccionando **"Scheduled red teaming runs"** en el panel izquierdo.
-
-Ese panel no abre un asistente nuevo — es un simple interruptor que **reutiliza un red team y una corrida que ya existan** y les aplica una cadencia:
+**Lección real de esta sesión — el primer escaneo se atascó:** el primer red team (9 categorías de riesgo) quedó atascado 1h42m con 0 resultados y sin error. Lo cancelamos y creamos uno nuevo y más liviano (`invoice-audit-security-scan-quick`, solo 2 categorías, 3 preguntas c/u) — ese sí avanzó con normalidad y es el que dio el resultado real (75%/3%) mostrado arriba.
 
 ![Captura 16](screenshots/16-scheduled-redteam-configured.png)
 
-*Captura 16 — "Scheduled red teaming runs" activado: Red team = invoice-audit-security-scan, Red teaming run = redteam-run-zm4cg1yq, Schedule = Monthly.*
+*Captura 16 — "Scheduled red teaming runs" activado dentro de Monitor settings: reutiliza un red team + run existentes y les aplica una cadencia (Hourly/Daily/Weekly/Monthly).*
 
-**Configuración real aplicada (en el momento de capturar esto):**
-
-- **Red team:** invoice-audit-security-scan.
-- **Red teaming run:** redteam-run-zm4cg1yq.
-- **Schedule:** Monthly (opciones disponibles: Hourly, Daily, Weekly, Monthly).
-
-⚠️ **Pendiente de actualizar antes de la demo final:** el red team `invoice-audit-security-scan` usado como plantilla arriba es justo el que quedó atascado y **cancelamos** (ver lección anterior). La programación quedó apuntando a un run cancelado — hay que **reabrir "Scheduled red teaming runs" en Monitor settings y volver a seleccionar** el red team nuevo (`invoice-audit-security-scan-quick` → `redteam-run-m56b284i`) una vez que termine, para que la plantilla programada sea una corrida real y exitosa, no la cancelada.
-
-Tras enviar ("Submit"), "Scheduled red teaming runs" pasa de "Disabled" a **"Enabled"** en el panel izquierdo — confirmado reabriendo el diálogo:
-
-![Captura 19](screenshots/19-scheduled-redteam-saved-confirmed.png)
-
-*Captura 19 — Confirmación: "Scheduled red teaming runs" ahora en estado "Enabled" con la configuración guardada (pendiente de repuntar al red team nuevo).*
-
-**Mensaje de valor para el cliente (versión corregida y más fuerte)**
-
-*"Y esto no se queda en una sola prueba de seguridad — igual que programamos la evaluación de calidad semanal, podemos programar que este mismo ataque adversarial se repita automáticamente cada mes, usando como plantilla un escaneo que ya corrió con éxito. Es decir: ni la calidad ni la seguridad del agente dependen de que alguien se acuerde de probarlas — las dos quedan corriendo solas."*
+⚠️ *Pendiente: la programación mensual configurada apunta todavía al red team cancelado — hay que repuntarla a `invoice-audit-security-scan-quick` antes de la demo final.*
 
 # Sección 5 — Tune: Evaluator y mejora continua
 

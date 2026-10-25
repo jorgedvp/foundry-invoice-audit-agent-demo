@@ -247,7 +247,7 @@ Lo anterior es lo que se necesita para contarle la historia al cliente. Lo que s
 
 *Captura 16 — "Scheduled red teaming runs" activado dentro de Monitor settings: reutiliza un red team + run existentes y les aplica una cadencia (Hourly/Daily/Weekly/Monthly).*
 
-⚠️ *Pendiente: la programación mensual configurada apunta todavía al red team cancelado — hay que repuntarla a `invoice-audit-security-scan-quick` antes de la demo final.*
+**Cerrado:** la programación mensual quedó repuntada a `invoice-audit-security-scan-quick` / `redteam-run-m56b284i` (el red team liviano, completado con éxito — 75%/3% ASR) en vez del red team original que se canceló. Confirmado reabriendo el diálogo: "Scheduled red teaming runs" = Enabled, apuntando al red team correcto.
 
 # Sección 5 — Tune: Evaluator y mejora continua
 

@@ -17,9 +17,11 @@
 > 4. **Un solo paso queda manual y requiere el portal** (ver sección
 >    "Qué construye `deploy.sh`" abajo): crear el Evaluator custom y correr
 >    la evaluación. Dile al usuario que ese paso falta y sigue el
->    [guion de navegación](deliverables/Guion-Invoice-Audit-Agent-Capitulo2-con-imagenes.docx),
->    sección "Sección 5 — Tune". No intentes automatizarlo por REST — ya se
->    intentó y esa función del portal no tiene API pública estable.
+>    [guion de navegación](deliverables/Guion-Invoice-Audit-Agent-Capitulo2-con-imagenes.md)
+>    (versión Markdown, fuente canónica para ediciones — el `.docx` es la
+>    misma guía en formato para imprimir/compartir), sección "Sección 5 —
+>    Tune". No intentes automatizarlo por REST — ya se intentó y esa función
+>    del portal no tiene API pública estable.
 > 5. Valida el deploy enviando al menos una pregunta de prueba al agente
 >    (el script ya lo hace automáticamente si `SEED_SAMPLE_TRAFFIC=true`).
 >    No declares éxito sin confirmar que el agente respondió HTTP 200 con
@@ -149,6 +151,7 @@ asignados (hasta 10 minutos por paso) en vez de fallar de inmediato.
 └── deliverables/
     ├── Guion-Invoice-Audit-Agent-Capitulo2.docx                # Guion original (sin imágenes)
     ├── Guion-Invoice-Audit-Agent-Capitulo2-con-imagenes.docx   # Guion unificado Cap. 2 + 3, con capturas reales y contexto completo
+    ├── Guion-Invoice-Audit-Agent-Capitulo2-con-imagenes.md     # Misma guía en Markdown — se renderiza con imágenes directo en GitHub, más fácil de editar/parchear
     ├── Cheat-Sheet-Invoice-Audit-Demo.docx                     # Versión compacta (tabla, 2 páginas) para presentar en vivo
     ├── Invoice-Audit-Agent-Resumen.pptx                        # Presentación de resumen ejecutivo
     ├── screenshots/                                            # Capturas del Capítulo 2 (Build/Observe/Tune)

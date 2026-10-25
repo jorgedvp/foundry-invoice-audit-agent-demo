@@ -183,7 +183,25 @@ https://ai.azure.com/nextgen/r/3eUZlgMRTK6RlV-UO9QbxQ,rg-invoice-audit-demo,,inv
 > **Objetivo de esta sección**
 > Mostrar que el monitoreo de un agente en producción no se limita a costo y tokens: Foundry permite automatizar la certificación continua de calidad/seguridad (evaluaciones recurrentes) y pruebas adversariales programadas (red teaming), sin que nadie tenga que ejecutarlas manualmente cada semana.
 
-**Dónde está esto en el portal — ¡cuidado! hay DOS botones "Configure" en esta pantalla**
+### Primero, lo simple: ¿para qué sirve cada pestaña de "Evaluations"?
+
+Antes de tocar nada, aclaremos el panorama — dentro de **Build → Evaluations** hay 3 pestañas que parecen relacionadas pero son 3 cosas distintas:
+
+| Pestaña | Qué es, en una frase |
+|---|---|
+| **Evaluations** | La lista de "boletas de notas" automáticas que ya existen para tu agente. Cada fila es una boleta distinta. |
+| **Evaluator catalog** | El catálogo de posibles criterios de nota disponibles (Violencia, Contenido sexual, Calidad de respuesta, etc.). No hace nada por sí solo — es de donde se eligen los criterios al crear una boleta nueva. |
+| **Red team** (Preview) | No es una boleta de notas — es una prueba de ataque: en vez de revisar si las respuestas son buenas, intenta romper al agente a propósito (hacerlo decir algo que no debería). |
+
+**Ejemplo concreto, con lo que ya armamos en este ambiente:**
+
+- La boleta `weekly-quality-monitor` (pestaña "Evaluations") revisa, cada semana y sola, si las respuestas del agente tienen violencia, contenido sexual, autolesión, discriminación, o simplemente son de mala calidad.
+- Esos 5 criterios salieron del "Evaluator catalog" al momento de crear la boleta.
+- `invoice-audit-security-scan` (pestaña "Red team") es harina de otro costal: ahí no se evalúan respuestas reales — se ataca al agente para ver si cede.
+
+Con esto claro, ahora sí — el **"Configure"** del que hablamos a continuación es un tercer lugar más: **dentro del agente** (Monitor → Overview), no dentro de "Evaluations". Es donde se activa el *piloto automático* — que esa boleta de notas y ese escaneo de seguridad corran solos, sin que nadie los lance a mano.
+
+### Dónde está esto en el portal — ¡cuidado! hay DOS botones "Configure" en esta pantalla
 
 En Monitor → Overview hay **dos tarjetas distintas que cada una tiene su propio botón "Configure"**: la tarjeta **"Evaluations"** (columna del medio) y la tarjeta **"Scheduled red teaming run issues"** (fila de abajo, a la izquierda). A simple vista parecen llevar a cosas distintas — **no es así: ambos botones abren exactamente el mismo diálogo "Monitor settings"**, solo que son dos puntos de entrada distintos a la misma pantalla. Confirmado en vivo haciendo clic en cada uno por separado.
 

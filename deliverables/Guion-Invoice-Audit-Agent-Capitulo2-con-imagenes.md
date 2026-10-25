@@ -101,6 +101,33 @@ https://ai.azure.com/nextgen/r/3eUZlgMRTK6RlV-UO9QbxQ,rg-invoice-audit-demo,,inv
 
 *"Pueden conectar SharePoint, Blob Storage, bases SQL, o simplemente subir archivos como hicimos aquí. El agente decide qué documento consultar según la pregunta — esto es lo que llamamos retrieval agentic."*
 
+**Cómo ver los 4 documentos reales (ruta confirmada en vivo)**
+
+El portal de Foundry no permite navegar los documentos de una Knowledge Base ya conectada — hay que ir al recurso de **Azure AI Search** directamente en el Portal de Azure:
+
+1. Ve a `portal.azure.com` (no `ai.azure.com`).
+2. Busca el recurso: **`invoice-audit-search`**.
+3. En el menú izquierdo, bajo **"Search management"**: clic en **"Indexes"**.
+4. Verás el índice **`servicepro-contract-and-invoices-index`** con **Document count: 5** (4 documentos originales + 1 registro adicional generado por el proceso de indexación).
+5. Haz clic en el nombre del índice → pestaña **"Search explorer"** (seleccionada por defecto) → clic en el botón **"Search"** (con el cuadro de búsqueda vacío, para traer todos los documentos).
+6. Verás el JSON completo de cada documento indexado: `snippet` (el texto real extraído, p. ej. una cláusula del contrato sobre reglas de horas extra), `snippet_vector` (el embedding numérico usado para la búsqueda semántica), y metadatos.
+
+![Captura 7](screenshots/07-search-service-indexes.png)
+
+*Captura 7 — Azure AI Search: el índice `servicepro-contract-and-invoices-index` con 5 documentos, 242.66 KB de almacenamiento total.*
+
+![Captura 8](screenshots/08-search-explorer-documents.png)
+
+*Captura 8 — Search Explorer: contenido real de un documento indexado — el `snippet` de texto extraído del contrato y su vector de embedding.*
+
+**Qué es Azure AI Search y cómo explicárselo al cliente**
+
+> Azure AI Search es el motor de búsqueda e indexación que hace posible que el agente "lea" documentos reales en vez de inventar respuestas. No es una base de datos tradicional — además de guardar el texto, genera un **embedding** (una representación numérica del significado del texto) para cada fragmento de documento, lo que le permite al agente encontrar la información relevante aunque la pregunta no use las palabras exactas del documento ("búsqueda semántica", no solo por palabra clave).
+>
+> En este caso, es el motor detrás de **Foundry IQ** (la capa de "Knowledge Bases" que ya vimos en el agente): Foundry IQ orquesta la recuperación con razonamiento, y Azure AI Search es quien realmente almacena, indexa y devuelve los fragmentos de los 4 documentos (el contrato MSA, el rate card/registro de aprobaciones, y las 2 facturas).
+>
+> Mensaje para el cliente: *"Esto es lo mismo que usan miles de aplicaciones empresariales en Azure para dar 'memoria documental' a un agente de IA — sus contratos, políticas o manuales se indexan una sola vez, y el agente los consulta en tiempo real cada vez que responde. Ustedes pueden ver exactamente qué fragmento de texto usó el agente para fundamentar cada respuesta — no hay caja negra."*
+
 # Sección 3 — Observe: Traces (trazabilidad)
 
 > **Objetivo de esta sección**
